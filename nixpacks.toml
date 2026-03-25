@@ -2,7 +2,9 @@
 nixPkgs = ["python312", "ffmpeg"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt", "pip install 'discord.py[voice]'"]
+# Usamos el path completo al pip del entorno virtual de Railway
+cmds = ["/app/.venv/bin/pip install -r requirements.txt"]
 
 [start]
-cmd = "python radiobot.py"
+# Usamos el python del entorno virtual para arrancar el bot
+cmd = "/app/.venv/bin/python radiobot.py"
