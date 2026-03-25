@@ -1,0 +1,30 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Variables de entorno (¡nunca subir el token!)
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# Distribución / build
+dist/
+build/
+*.egg-info/
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+desktop.ini
