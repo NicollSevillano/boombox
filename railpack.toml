@@ -1,0 +1,7 @@
+[build]
+# Esto le dice al nuevo sistema que instale paquetes de sistema
+apt_packages = ["ffmpeg", "libopus-dev"]
+
+[deploy]
+# Comando para arrancar tu bot
+command = "python radiobot.py"
