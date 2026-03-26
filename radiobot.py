@@ -76,7 +76,7 @@ def guardar_favoritos(favs):
 
 # ── RECONEXIÓN PRO ──────────────────────────────────
 async def reconectar(vc, url):
-    await asyncio.sleep(2)
+    await asyncio.sleep(3)
 
     if vc.is_connected() and not vc.is_playing():
         print(f"🔄 Reconectando: {url}")
@@ -84,13 +84,8 @@ async def reconectar(vc, url):
             source = await FFmpegOpusAudio.from_probe(
                 url,
                 executable="ffmpeg",
-                before_options=(
-                    "-reconnect 1 -reconnect_streamed 1 "
-                    "-reconnect_delay_max 5 "
-                    "-buffer_size 512k "
-                    "-rw_timeout 15000000"
-                ),
-                options="-vn -loglevel quiet"
+                before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+                options="-vn"
             )
 
             vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
@@ -98,19 +93,18 @@ async def reconectar(vc, url):
             ))
 
         except Exception as e:
-            print(f"❌ Error reconectando: {e}")
+            print(f"Error reconectando: {e}")
 
 
 # ── REPRODUCIR ──────────────────────────────────────
 async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
-
     if es_interaction:
         author = interaction_or_ctx.user
-        send = interaction_or_ctx.followup.send
+        send   = interaction_or_ctx.followup.send
         voice_client = interaction_or_ctx.guild.voice_client
     else:
         author = interaction_or_ctx.author
-        send = interaction_or_ctx.send
+        send   = interaction_or_ctx.send
         voice_client = interaction_or_ctx.voice_client
 
     if not author.voice:
@@ -131,18 +125,13 @@ async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
         source = await FFmpegOpusAudio.from_probe(
             url,
             executable="ffmpeg",
-            before_options=(
-                "-reconnect 1 -reconnect_streamed 1 "
-                "-reconnect_delay_max 5 "
-                "-buffer_size 512k "
-                "-rw_timeout 15000000"
-            ),
-            options="-vn -loglevel quiet"
+            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            options="-vn"
         )
 
         def after_play(err):
             if err:
-                print(f"⚠️ Error: {err}")
+                print(f"Error real: {err}")
             asyncio.run_coroutine_threadsafe(
                 reconectar(vc, url), client.loop
             )
