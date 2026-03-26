@@ -1,10 +1,8 @@
 [phases.setup]
-nixPkgs = ["python312", "ffmpeg"]
+nixPkgs = ["python311", "ffmpeg", "pkg-config", "libopus"]
 
 [phases.install]
-# Usamos el path completo al pip del entorno virtual de Railway
-cmds = ["/app/.venv/bin/pip install -r requirements.txt"]
+cmds = ["pip install -r requirements.txt"]
 
 [start]
-# Usamos el python del entorno virtual para arrancar el bot
-cmd = "/app/.venv/bin/python radiobot.py"
+cmd = "python radiobot.py"
