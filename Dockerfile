@@ -1,16 +1,11 @@
-FROM python:3.13-slim
+FROM python:3.11-slim
 
-# Instalar ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg && apt-get clean
+# Instalamos ffmpeg para que el bot pueda procesar audio
+RUN apt-get update && apt-get install -y ffmpeg libopus-dev && rm -rf /var/lib/apt/lists/*
 
-# Carpeta de trabajo
 WORKDIR /app
-
-# Copiar todo
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
-# Instalar dependencias
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Ejecutar bot
 CMD ["python", "radiobot.py"]
