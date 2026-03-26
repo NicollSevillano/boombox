@@ -74,67 +74,72 @@ def guardar_favoritos(favs):
         json.dump(favs, f, ensure_ascii=False, indent=2)
 
 
-# ── RECONEXIÓN PRO ──────────────────────────────────
+# ── RECONEXIÓN OPTIMIZADA ──────────────────────────────────
 async def reconectar(vc, url):
-    await asyncio.sleep(3)
-
-    if vc.is_connected() and not vc.is_playing():
-        print(f"🔄 Reconectando: {url}")
+    """
+    Intenta restablecer la conexión si el stream se corta, 
+    esperando un breve momento para limpiar el buffer.
+    """
+    await asyncio.sleep(2) 
+    
+    if vc and vc.is_connected() and not vc.is_playing():
+        print(f"🔄 Re-estabilizando señal: {url}")
         try:
             source = await FFmpegOpusAudio.from_probe(
                 url,
                 executable="ffmpeg",
                 before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-                options="-vn"
+                options="-vn -af aresample=async=1"
             )
 
             vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
                 reconectar(vc, url), client.loop
             ))
-
         except Exception as e:
-            print(f"Error reconectando: {e}")
+            print(f"⚠️ Error en reconexión: {e}")
 
-
-# ── REPRODUCIR ──────────────────────────────────────
+# ── REPRODUCIR CORREGIDO ──────────────────────────────────────
 async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
+    """
+    Función principal de ejecución de audio compatible con Slash y Prefijo.
+    """
     if es_interaction:
         author = interaction_or_ctx.user
         send   = interaction_or_ctx.followup.send
-        voice_client = interaction_or_ctx.guild.voice_client
+        guild  = interaction_or_ctx.guild
     else:
         author = interaction_or_ctx.author
         send   = interaction_or_ctx.send
-        voice_client = interaction_or_ctx.voice_client
+        guild  = interaction_or_ctx.guild
 
     if not author.voice:
-        await send("⚠️ Tenés que estar en un canal de voz.")
+        await send("⚠️ Tenés que estar en un canal de voz para que me una.")
         return
 
     channel = author.voice.channel
-
-    if voice_client:
-        if voice_client.channel.id != channel.id:
-            await voice_client.move_to(channel)
-        if voice_client.is_playing():
-            voice_client.stop()
+    voice_client = guild.voice_client
 
     try:
-        vc = voice_client or await channel.connect()
+        if voice_client:
+            if voice_client.channel.id != channel.id:
+                await voice_client.move_to(channel)
+            if voice_client.is_playing():
+                voice_client.stop()
+            vc = voice_client
+        else:
+            vc = await channel.connect()
 
         source = await FFmpegOpusAudio.from_probe(
             url,
             executable="ffmpeg",
             before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-            options="-vn"
+            options="-vn -af aresample=async=1"
         )
 
         def after_play(err):
             if err:
-                print(f"Error real: {err}")
-            asyncio.run_coroutine_threadsafe(
-                reconectar(vc, url), client.loop
-            )
+                print(f"❌ Error detectado en el stream: {err}")
+            asyncio.run_coroutine_threadsafe(reconectar(vc, url), client.loop)
 
         vc.play(source, after=after_play)
 
@@ -146,9 +151,8 @@ async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
         await send(f"📻 Reproduciendo en `{channel.name}`\n🔗 `{url}`", view=view)
 
     except Exception as e:
-        await send(f"❌ Error de reproducción: {e}")
-        print(f"Detalle: {e}")
-
+        await send(f"❌ No pude reproducir la radio: {e}")
+        print(f"Detalle técnico del error: {e}")
 
 # ── BOTÓN FAVORITO ──────────────────────────────────
 class BotonFavorito(discord.ui.View):
