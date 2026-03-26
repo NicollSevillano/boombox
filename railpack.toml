@@ -1,5 +1,0 @@
-[build]
-apt_packages = ["ffmpeg", "libopus-dev"]
-
-[deploy]
-command = "python radiobot.py"
