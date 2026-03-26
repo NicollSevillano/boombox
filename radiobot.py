@@ -77,15 +77,15 @@ async def reconectar(voice_client, url):
     if voice_client.is_connected() and not voice_client.is_playing():
         print("Reconectando...")
         try:
-            # Forzamos la búsqueda del ejecutable 'ffmpeg'
+        # CAMBIA ESTO:
             source = await FFmpegOpusAudio.from_probe(
                 url,
                 executable="ffmpeg",
                 before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                 options="-vn"
             )
-            voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
-                reconectar(voice_client, url), client.loop
+            vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
+                reconectar(vc, url), client.loop
             ))
         except Exception as e:
             print(f"Error al reconectar: {e}")
