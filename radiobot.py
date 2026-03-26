@@ -14,10 +14,12 @@ TOKEN   = os.getenv("DISCORD_TOKEN")
 PREFIX  = os.getenv("PREFIX", "!")
 FAVS_FILE = "favoritos.json"
 
+# ── Intents ─────────────────────────────────────────
 intents = discord.Intents.default()
 intents.message_content = True
 
 
+# ── Bot ─────────────────────────────────────────────
 class RadioBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=PREFIX, intents=intents)
@@ -31,12 +33,36 @@ class RadioBot(commands.Bot):
 
 
 client = RadioBot()
+
+# Historial
 historial = deque(maxlen=3)
 
-HELP_MESSAGE = """🎙️ BoomBox listo para usar."""
+# ── HELP ────────────────────────────────────────────
+HELP_MESSAGE = """🎙️ **BoomBox — Tu radio en Discord**
 
+Reproducí cualquier emisora de radio o stream en vivo.
 
-# ── Favoritos ─────────────────────────────────────────
+━━━━━━━━━━━━━━━━━━━━━━━
+📻 **Comandos**
+
+`/play <url>` o `!play <url>` → Reproducir radio  
+`/stop` o `!stop` → Detener  
+`/recientes` o `!recientes` → Últimas radios  
+`/favoritos` o `!favoritos` → Ver favoritos  
+`/eliminar_favorito <nombre>` → Eliminar favorito  
+`/ayuda` o `!ayuda` → Mostrar ayuda  
+
+━━━━━━━━━━━━━━━━━━━━━━━
+⭐ Guardar favoritos:
+1. Usá /play  
+2. Tocá ⭐  
+3. Poné nombre  
+
+━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ Algunas radios pueden cortarse, el bot reconecta automáticamente.
+"""
+
+# ── Favoritos ───────────────────────────────────────
 def cargar_favoritos():
     if os.path.exists(FAVS_FILE):
         with open(FAVS_FILE, "r", encoding="utf-8") as f:
@@ -48,9 +74,10 @@ def guardar_favoritos(favs):
         json.dump(favs, f, ensure_ascii=False, indent=2)
 
 
-# ── RECONEXIÓN PRO ───────────────────────────────────
+# ── RECONEXIÓN PRO ──────────────────────────────────
 async def reconectar(vc, url):
-    await asyncio.sleep(2)  # más rápido
+    await asyncio.sleep(2)
+
     if vc.is_connected() and not vc.is_playing():
         print(f"🔄 Reconectando: {url}")
         try:
@@ -65,22 +92,25 @@ async def reconectar(vc, url):
                 ),
                 options="-vn -loglevel quiet"
             )
+
             vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
                 reconectar(vc, url), client.loop
             ))
+
         except Exception as e:
             print(f"❌ Error reconectando: {e}")
 
 
-# ── REPRODUCCIÓN ─────────────────────────────────────
+# ── REPRODUCIR ──────────────────────────────────────
 async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
+
     if es_interaction:
         author = interaction_or_ctx.user
-        send   = interaction_or_ctx.followup.send
+        send = interaction_or_ctx.followup.send
         voice_client = interaction_or_ctx.guild.voice_client
     else:
         author = interaction_or_ctx.author
-        send   = interaction_or_ctx.send
+        send = interaction_or_ctx.send
         voice_client = interaction_or_ctx.voice_client
 
     if not author.voice:
@@ -112,7 +142,7 @@ async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
 
         def after_play(err):
             if err:
-                print(f"⚠️ Error real: {err}")
+                print(f"⚠️ Error: {err}")
             asyncio.run_coroutine_threadsafe(
                 reconectar(vc, url), client.loop
             )
@@ -123,15 +153,66 @@ async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
             historial.remove(url)
         historial.appendleft(url)
 
-        await send(f"📻 Reproduciendo en `{channel.name}`\n🔗 `{url}`")
+        view = BotonFavorito(url)
+        await send(f"📻 Reproduciendo en `{channel.name}`\n🔗 `{url}`", view=view)
 
     except Exception as e:
-        await send(f"❌ Error: {e}")
+        await send(f"❌ Error de reproducción: {e}")
         print(f"Detalle: {e}")
 
 
-# ── COMANDOS ─────────────────────────────────────────
+# ── BOTÓN FAVORITO ──────────────────────────────────
+class BotonFavorito(discord.ui.View):
+    def __init__(self, url: str):
+        super().__init__(timeout=60)
+        self.url = url
 
+    @discord.ui.button(label="⭐ Guardar favorito", style=discord.ButtonStyle.secondary)
+    async def guardar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.manage_channels:
+            await interaction.response.send_message("❌ Solo admins/mods.", ephemeral=True)
+            return
+
+        await interaction.response.send_modal(ModalNombreFavorito(self.url))
+
+
+class ModalNombreFavorito(discord.ui.Modal, title="Guardar favorito"):
+    nombre = discord.ui.TextInput(label="Nombre de la radio", max_length=50)
+
+    def __init__(self, url: str):
+        super().__init__()
+        self.url = url
+
+    async def on_submit(self, interaction: discord.Interaction):
+        favs = cargar_favoritos()
+        favs[self.nombre.value] = self.url
+        guardar_favoritos(favs)
+
+        await interaction.response.send_message(
+            f"⭐ {self.nombre.value} guardado.",
+            ephemeral=True
+        )
+
+
+# ── BOTONES FAVORITOS ───────────────────────────────
+class BotonesFavoritos(discord.ui.View):
+    def __init__(self, favs: dict):
+        super().__init__(timeout=120)
+        for nombre, url in favs.items():
+            self.add_item(BotonReproducirFavorito(nombre, url))
+
+
+class BotonReproducirFavorito(discord.ui.Button):
+    def __init__(self, nombre: str, url: str):
+        super().__init__(label=f"▶️ {nombre}", style=discord.ButtonStyle.primary)
+        self.url = url
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        await reproducir(interaction, self.url, True)
+
+
+# ── SLASH COMMANDS ──────────────────────────────────
 @client.tree.command(name="play")
 async def slash_play(interaction: discord.Interaction, url: str):
     await interaction.response.defer()
@@ -155,10 +236,42 @@ async def slash_recientes(interaction: discord.Interaction):
     await interaction.response.send_message("\n".join(historial))
 
 
+@client.tree.command(name="favoritos")
+async def slash_favoritos(interaction: discord.Interaction):
+    favs = cargar_favoritos()
+    if not favs:
+        await interaction.response.send_message("📭 No hay favoritos.")
+        return
+
+    texto = "\n".join([f"⭐ {n}" for n in favs])
+    await interaction.response.send_message(texto, view=BotonesFavoritos(favs))
+
+
+@client.tree.command(name="eliminar_favorito")
+async def slash_eliminar(interaction: discord.Interaction, nombre: str):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("❌ Solo admins.", ephemeral=True)
+        return
+
+    favs = cargar_favoritos()
+    if nombre in favs:
+        del favs[nombre]
+        guardar_favoritos(favs)
+        await interaction.response.send_message("🗑️ Eliminado.")
+    else:
+        await interaction.response.send_message("No existe.")
+
+
+@client.tree.command(name="ayuda")
+async def slash_ayuda(interaction: discord.Interaction):
+    await interaction.response.send_message(HELP_MESSAGE)
+
+
+# ── PREFIX COMMANDS ────────────────────────────────
 @client.command(name="play")
 async def prefix_play(ctx, url: str = None):
     if not url:
-        await ctx.send("⚠️ Pasá una URL.")
+        await ctx.send("⚠️ Pasá URL.")
         return
     await reproducir(ctx, url, False)
 
@@ -168,6 +281,11 @@ async def prefix_stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
         await ctx.send("⏹️ Stop.")
+
+
+@client.command(name="ayuda")
+async def prefix_ayuda(ctx):
+    await ctx.send(HELP_MESSAGE)
 
 
 client.run(TOKEN)
