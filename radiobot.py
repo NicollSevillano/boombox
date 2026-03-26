@@ -206,13 +206,13 @@ class BotonReproducirFavorito(discord.ui.Button):
 
 
 # ── SLASH COMMANDS ──────────────────────────────────
-@client.tree.command(name="play")
+@client.tree.command(name="play", description="Reproduce una radio desde una URL")
 async def slash_play(interaction: discord.Interaction, url: str):
     await interaction.response.defer()
     await reproducir(interaction, url, True)
 
 
-@client.tree.command(name="stop")
+@client.tree.command(name="stop", description="Detiene la radio y desconecta al bot")
 async def slash_stop(interaction: discord.Interaction):
     if interaction.guild.voice_client:
         await interaction.guild.voice_client.disconnect()
@@ -221,7 +221,7 @@ async def slash_stop(interaction: discord.Interaction):
         await interaction.response.send_message("Nada sonando.")
 
 
-@client.tree.command(name="recientes")
+@client.tree.command(name="recientes", description="Muestra las ultimas 3 estaciones")
 async def slash_recientes(interaction: discord.Interaction):
     if not historial:
         await interaction.response.send_message("📭 Vacío.")
@@ -229,7 +229,7 @@ async def slash_recientes(interaction: discord.Interaction):
     await interaction.response.send_message("\n".join(historial))
 
 
-@client.tree.command(name="favoritos")
+@client.tree.command(name="favoritos", description="Muestra tu lista de radios guardadas")
 async def slash_favoritos(interaction: discord.Interaction):
     favs = cargar_favoritos()
     if not favs:
@@ -240,7 +240,7 @@ async def slash_favoritos(interaction: discord.Interaction):
     await interaction.response.send_message(texto, view=BotonesFavoritos(favs))
 
 
-@client.tree.command(name="eliminar_favorito")
+@client.tree.command(name="eliminar_favorito", description="Borra una radio de tu lista de favoritos")
 async def slash_eliminar(interaction: discord.Interaction, nombre: str):
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message("❌ Solo admins.", ephemeral=True)
@@ -255,7 +255,7 @@ async def slash_eliminar(interaction: discord.Interaction, nombre: str):
         await interaction.response.send_message("No existe.")
 
 
-@client.tree.command(name="ayuda")
+@client.tree.command(name="ayuda", description="Muestra la lista de comandos y cómo usar el bot")
 async def slash_ayuda(interaction: discord.Interaction):
     await interaction.response.send_message(HELP_MESSAGE)
 
