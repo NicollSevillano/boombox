@@ -73,34 +73,29 @@ def guardar_favoritos(favs):
 
 # ── Lógica de reproducción ───────────────────────────────────────
 async def reconectar(voice_client, url):
-    await asyncio.sleep(3)
+    await asyncio.sleep(5) 
     if voice_client.is_connected() and not voice_client.is_playing():
-        print("Reconectando...")
+        print(f"Intentando reconectar stream: {url}")
         try:
-        # CAMBIA ESTO:
             source = await FFmpegOpusAudio.from_probe(
                 url,
                 executable="ffmpeg",
                 before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                 options="-vn"
             )
-            vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
-                reconectar(vc, url), client.loop
+            voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
+                reconectar(voice_client, url), client.loop
             ))
         except Exception as e:
-            print(f"Error al reconectar: {e}")
-
+            print(f"Error en reconexión automática: {e}")
 
 async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
-    # Obtener autor y canal según el tipo
     if es_interaction:
         author = interaction_or_ctx.user
-        guild  = interaction_or_ctx.guild
         send   = interaction_or_ctx.followup.send
-        voice_client = guild.voice_client
+        voice_client = interaction_or_ctx.guild.voice_client
     else:
         author = interaction_or_ctx.author
-        guild  = interaction_or_ctx.guild
         send   = interaction_or_ctx.send
         voice_client = interaction_or_ctx.voice_client
 
@@ -111,36 +106,39 @@ async def reproducir(interaction_or_ctx, url: str, es_interaction: bool = True):
     channel = author.voice.channel
 
     if voice_client:
-        await voice_client.disconnect()
+        if voice_client.channel.id != channel.id:
+            await voice_client.move_to(channel)
+        if voice_client.is_playing():
+            voice_client.stop()
 
     try:
-        vc = await channel.connect()
-    except Exception as e:
-        await send(f"❌ No pude conectarme al canal: {e}")
-        return
+        if not voice_client:
+            vc = await channel.connect()
+        else:
+            vc = voice_client
 
-    try:
-        source = FFmpegOpusAudio(
+        # USANDO EL MÉTODO ASÍNCRONO from_probe
+        source = await FFmpegOpusAudio.from_probe(
             url,
-            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+            executable="ffmpeg",
+            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            options="-vn"
         )
+        
         vc.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(
             reconectar(vc, url), client.loop
         ))
 
-        # Actualizar historial
         if url in historial:
             historial.remove(url)
         historial.appendleft(url)
 
-        # Botón para guardar favorito
         view = BotonFavorito(url)
-        await send(
-            f"📻 Reproduciendo en `{channel.name}`\n🔗 `{url}`",
-            view=view
-        )
+        await send(f"📻 Reproduciendo en `{channel.name}`\n🔗 `{url}`", view=view)
+        
     except Exception as e:
-        await send(f"❌ No pude reproducir esa URL: {e}")
+        await send(f"❌ Error de reproducción: {e}")
+        print(f"Detalle del error: {e}")
 
 
 # ── Botón ⭐ Guardar favorito ────────────────────────────────────
