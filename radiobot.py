@@ -79,7 +79,7 @@ async def reconectar(voice_client, url):
         try:
             source = await FFmpegOpusAudio.from_probe(
                 url,
-                executable="ffmpeg",
+                executable="/usr/bin/ffmpeg",
                 before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                 options="-vn"
             )
