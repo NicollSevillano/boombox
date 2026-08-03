@@ -110,6 +110,5 @@ MIT License
 
 ```
 Developed by: **Nicoll Sevillano**  
-Project for courses: Field / Diploma Project  
 Year: 2025
 ```
